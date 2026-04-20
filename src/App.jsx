@@ -18,8 +18,10 @@ function App() {
 
   return (
     <>
+      {console.log(isLoggedin)}
       
-      {isLoggedin ? <Dashboard/> : <Login setIsLoggedIn= {()=> setIsLoggedIn }/> }
+      {isLoggedin ? <Dashboard/> : <Login setIsLoggedIn={setIsLoggedIn} /> }
+
     
 
     </>

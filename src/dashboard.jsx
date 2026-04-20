@@ -1,283 +1,508 @@
-import Header from './header'
-import Footer from './footer'
+import { useState } from 'react';
+import Header from './header';
+import Footer from './footer';
+import { getbeneficiaries, finduserbyaccount, findbeneficiarieByid } from './database.js';
 
+function Dashboard() {
+  const [user, setUser] = useState(() => JSON.parse(sessionStorage.getItem('currentUser')));
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [showRecharge, setShowRecharge] = useState(false);
 
-function dashboard() {
-    return (
-        <>
-            <Header />
-                  <main className="dashboard-main">
-    <div className="dashboard-container">
-      
-      <aside className="dashboard-sidebar">
-        <nav className="sidebar-nav">
-          <ul>
-            <li className="active"> 
-              <a href="#overview"> 
-                <i className="fas fa-home"></i>
-                <span>Vue d'ensemble</span>
-              </a>
-            </li>
-            <li>
-              <a href="#transactions">
-                <i className="fas fa-exchange-alt"></i>
-                <span>Transactions</span>
-              </a>
-            </li>
-            <li>
-              <a href="#cards">
-                <i className="fas fa-credit-card"></i>
-                <span>Mes cartes</span>
-              </a>
-            </li>
-            <li>
-              <a href="#transfers">
-                <i className="fas fa-paper-plane"></i>
-                <span>Transferts</span>
-              </a>
-            </li>
-            <li className="separator"></li>
-            <li>
-              <a href="#support">
-                <i className="fas fa-headset"></i>
-                <span>Aide & Support</span>
-              </a>
-            </li>
-          </ul>
-        </nav>
-      </aside>
+  const [beneficiaryId, setBeneficiaryId] = useState('');
+  const [sourceCard, setSourceCard] = useState('');
+  const [amount, setAmount] = useState('');
 
-      <div className="dashboard-content">
-        
-        <section id="overview" className="dashboard-section active">
-          <div className="section-header">
-            <h2>Bonjour, <span id="greetingName">?</span> !</h2>
-            <p className="date-display" id="currentDate"></p>
-          </div>
+  const [rechargeCard, setRechargeCard] = useState('');
+  const [amountRecharge, setAmountRecharge] = useState('');
 
-          <div className="summary-cards">
-            <div className="summary-card">
-              <div className="card-icon blue">
-                <i className="fas fa-wallet"></i>
-              </div>
-              <div className="card-details">
-                <span className="card-label">Solde disponible</span>
-                <span className="card-value" id="availableBalance">?</span>
-              </div>
-            </div>
+  if (!user) {
+    alert('User not authenticated');
+    return null;
+  }
 
-            <div className="summary-card">
-              <div className="card-icon green">
-                <i className="fas fa-arrow-up"></i>
-              </div>
-              <div className="card-details">
-                <span className="card-label">Revenus</span>
-                <span className="card-value" id="monthlyIncome">?</span>
-              </div>
-            </div>
+  const beneficiaries = getbeneficiaries(user.id) || [];
+  const cards = user.wallet.cards || [];
 
-            <div className="summary-card">
-              <div className="card-icon red">
-                <i className="fas fa-arrow-down"></i>
-              </div>
-              <div className="card-details">
-                <span className="card-label">Dépenses</span>
-                <span className="card-value" id="monthlyExpenses">?</span>
-              </div>
-            </div>
+  const monthlyIncome = user.wallet.transactions
+    .filter((t) => t.type === 'credit')
+    .reduce((total, t) => total + t.amount, 0);
 
-            <div className="summary-card">
-              <div className="card-icon purple">
-                <i className="fas fa-credit-card"></i>
-              </div>
-              <div className="card-details">
-                <span className="card-label">Cartes actives</span>
-                <span className="card-value" id="activeCards">?</span>
-              </div>
-            </div>
-          </div>
+  const monthlyExpenses = user.wallet.transactions
+    .filter((t) => t.type === 'debit')
+    .reduce((total, t) => total + t.amount, 0);
 
-          <div className="quick-actions">
-            <h3>Actions rapides</h3>
-            <div className="action-buttons">
-              <button className="action-btn" id="quickTransfer" type="button">
-                <i className="fas fa-paper-plane"></i>
-                <span>Transférer</span>
-              </button>
-              <button className="action-btn" id="quickTopup" type="button">
-                <i className="fas fa-plus-circle"></i>
-                <span>Recharger</span>
-              </button>
-              <button className="action-btn" id="quickRequest" type="button">
-                <i className="fas fa-hand-holding-usd"></i>
-                <span>Demander</span>
-              </button>
-            </div>
-          </div>
-          
-          <div className="recent-transactions">
-            <div className="section-header">
-              <h3>Transactions récentes</h3>
-            </div>
-            <div className="transactions-list" id="recentTransactionsList"></div>
-          </div>
-        </section>
+  const dashboardData = {
+    userName: user.name,
+    currentDate: new Date().toLocaleDateString('fr-FR'),
+    availableBalance: `${user.wallet.balance} ${user.wallet.currency}`,
+    activeCards: user.wallet.cards.length,
+    monthlyIncome: `${monthlyIncome} MAD`,
+    monthlyExpenses: `${monthlyExpenses} MAD`,
+  };
 
-        <section id="cards" className="dashboard-section">
-          <div className="section-header">
-            <h2>Mes cartes</h2>
-            <button className="btn btn-secondary" id="addCardBtn" type="button">
-              <i className="fas fa-plus"></i> Ajouter une carte
-            </button>
-          </div>
-          
-          <div className="cards-grid" id="cardsGrid">
-            <div className="card-item">
-              <div className="card-preview visa">
-                <div className="card-chip"></div>
-                <div className="card-number">?</div>
-                <div className="card-holder">?</div>
-                <div className="card-expiry">?</div>
-                <div class="card-type">?</div>
+  const refreshUser = () => {
+    const updatedUser = JSON.parse(JSON.stringify(user));
+
+    setUser(updatedUser);
+    sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+  };
+
+  const checkUser = (numcompte) =>
+    new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const beneficiary = finduserbyaccount(numcompte);
+        if (beneficiary) {
+          resolve(beneficiary);
+        } else {
+          reject('beneficiary not found');
+        }
+      }, 200);
+    });
+
+  const checkSolde = (expediteur, value) =>
+    new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (expediteur.wallet.balance > value) {
+          resolve('Sufficient balance');
+        } else {
+          reject('Insufficient balance');
+        }
+      }, 300);
+    });
+
+  const updateSolde = (expediteur, destinataire, value) =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        expediteur.wallet.balance -= value;
+        destinataire.wallet.balance += value;
+        resolve('update balance done');
+      }, 200);
+    });
+
+  const addtransactions = (expediteur, destinataire, value) =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        const credit = {
+          id: Date.now(),
+          type: 'credit',
+          amount: value,
+          date: new Date().toLocaleString('fr-FR'),
+          from: expediteur.name,
+        };
+
+        const debit = {
+          id: Date.now() + 1,
+          type: 'debit',
+          amount: value,
+          date: new Date().toLocaleString('fr-FR'),
+          to: destinataire.name,
+        };
+
+        expediteur.wallet.transactions.push(debit);
+        destinataire.wallet.transactions.push(credit);
+        resolve('transaction added successfully');
+      }, 300);
+    });
+
+  async function transfer(expediteur, numcompte, value) {
+    const destinataire = await checkUser(numcompte);
+    await checkSolde(expediteur, value);
+    await updateSolde(expediteur, destinataire, value);
+    await addtransactions(expediteur, destinataire, value);
+  }
+
+  const checkAmount = (value) =>
+    new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (value >= 100) {
+          resolve('Amount is valid');
+        } else {
+          reject('Amount invalid');
+        }
+      }, 200);
+    });
+
+  const addRechargeTransaction = (value) =>
+    new Promise((resolve) => {
+      setTimeout(() => {
+        const credit = {
+          id: Date.now(),
+          type: 'RECHARGE',
+          amount: value,
+          date: new Date().toLocaleString('fr-FR'),
+          from: 'Card Recharge',
+        };
+        user.wallet.transactions.push(credit);
+        user.wallet.balance += value;
+        resolve('Recharge successful');
+      }, 300);
+    });
+
+  const checkCard = (cardNumber) =>
+    new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const card = user.wallet.cards.find((c) => c.numcards === cardNumber);
+        if (card) {
+          const expiryDate = new Date(card.expiry);
+          const currentDate = new Date();
+          if (expiryDate - currentDate > 0) {
+            resolve('Card is valid');
+          } else {
+            reject('Card has expired');
+          }
+        } else {
+          reject('Card not found');
+        }
+      }, 200);
+    });
+
+  async function recharge(value) {
+    await checkAmount(value);
+    await checkCard(rechargeCard);
+    await addRechargeTransaction(value);
+  }
+
+  const handleTransfer = async (e) => {
+    e.preventDefault();
+
+    try {
+      const beneficiary = findbeneficiarieByid(user.id, beneficiaryId);
+      if (!beneficiary) {
+        alert('beneficiary not found');
+        return;
+      }
+
+      const numericAmount = Number(amount);
+      await transfer(user, beneficiary.account, numericAmount);
+      refreshUser();
+      setShowTransfer(false);
+      setBeneficiaryId('');
+      setSourceCard('');
+      setAmount('');
+    } catch (error) {
+      console.log(error);
+      alert(error);
+    }
+  };
+
+  const handleRecharge = async (e) => {
+    e.preventDefault();
+
+    try {
+      const numericAmount = Number(amountRecharge);
+      await recharge(numericAmount);
+      refreshUser();
+      setShowRecharge(false);
+      setRechargeCard('');
+      setAmountRecharge('');
+    } catch (error) {
+      console.log(error);
+      alert(error);
+    }
+  };
+
+  return (
+    <>
+      <Header />
+      <main className="dashboard-main">
+        <div className="dashboard-container">
+          <aside className="dashboard-sidebar">
+            <nav className="sidebar-nav">
+              <ul>
+                <li className="active">
+                  <a href="#overview">
+                    <i className="fas fa-home"></i>
+                    <span>Vue d'ensemble</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#transactions">
+                    <i className="fas fa-exchange-alt"></i>
+                    <span>Transactions</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#cards">
+                    <i className="fas fa-credit-card"></i>
+                    <span>Mes cartes</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#transfers">
+                    <i className="fas fa-paper-plane"></i>
+                    <span>Transferts</span>
+                  </a>
+                </li>
+                <li className="separator"></li>
+                <li>
+                  <a href="#support">
+                    <i className="fas fa-headset"></i>
+                    <span>Aide & Support</span>
+                  </a>
+                </li>
+              </ul>
+            </nav>
+          </aside>
+
+          <div className="dashboard-content">
+            <section id="overview" className="dashboard-section active">
+              <div className="section-header">
+                <h2>Bonjour, <span id="greetingName">{dashboardData.userName}</span> !</h2>
+                <p className="date-display" id="currentDate">{dashboardData.currentDate}</p>
               </div>
-              <div className="card-actions">
-                <button className="card-action" title="Définir par défaut" type="button">
-                  <i className="fas fa-star"></i>
+
+              <div className="summary-cards">
+                <div className="summary-card">
+                  <div className="card-icon blue">
+                    <i className="fas fa-wallet"></i>
+                  </div>
+                  <div className="card-details">
+                    <span className="card-label">Solde disponible</span>
+                    <span className="card-value" id="availableBalance">{dashboardData.availableBalance}</span>
+                  </div>
+                </div>
+
+                <div className="summary-card">
+                  <div className="card-icon green">
+                    <i className="fas fa-arrow-up"></i>
+                  </div>
+                  <div className="card-details">
+                    <span className="card-label">Revenus</span>
+                    <span className="card-value" id="monthlyIncome">{dashboardData.monthlyIncome}</span>
+                  </div>
+                </div>
+
+                <div className="summary-card">
+                  <div className="card-icon red">
+                    <i className="fas fa-arrow-down"></i>
+                  </div>
+                  <div className="card-details">
+                    <span className="card-label">Dépenses</span>
+                    <span className="card-value" id="monthlyExpenses">{dashboardData.monthlyExpenses}</span>
+                  </div>
+                </div>
+
+                <div className="summary-card">
+                  <div className="card-icon purple">
+                    <i className="fas fa-credit-card"></i>
+                  </div>
+                  <div className="card-details">
+                    <span className="card-label">Cartes actives</span>
+                    <span className="card-value" id="activeCards">{dashboardData.activeCards}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="quick-actions">
+                <h3>Actions rapides</h3>
+                <div className="action-buttons">
+                  <button className="action-btn" id="quickTransfer" type="button" onClick={() => setShowTransfer(true)}>
+                    <i className="fas fa-paper-plane"></i>
+                    <span>Transférer</span>
+                  </button>
+                  <button className="action-btn" id="quickTopup" type="button" onClick={() => setShowRecharge(true)}>
+                    <i className="fas fa-plus-circle"></i>
+                    <span>Recharger</span>
+                  </button>
+                  <button className="action-btn" id="quickRequest" type="button">
+                    <i className="fas fa-hand-holding-usd"></i>
+                    <span>Demander</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="recent-transactions">
+                <div className="section-header">
+                  <h3>Transactions récentes</h3>
+                </div>
+                <div className="transactions-list" id="recentTransactionsList">
+                  {user.wallet.transactions.map((transaction) => (
+                    <div className="transaction-item" key={`${transaction.id}-${transaction.date}`}>
+                      <div>{transaction.date}</div>
+                      <div>{transaction.amount} MAD</div>
+                      <div>{transaction.type}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section id="cards" className="dashboard-section">
+              <div className="section-header">
+                <h2>Mes cartes</h2>
+                <button className="btn btn-secondary" id="addCardBtn" type="button">
+                  <i className="fas fa-plus"></i> Ajouter une carte
                 </button>
-                <button className="card-action" title="Geler la carte" type="button">
-                  <i className="fas fa-snowflake"></i>
+              </div>
+
+              <div className="cards-grid" id="cardsGrid">
+                {cards.map((card) => (
+                  <div className="card-item" key={card.numcards}>
+                    <div className={`card-preview ${card.type}`}>
+                      <div className="card-chip"></div>
+                      <div className="card-number">{card.numcards}</div>
+                      <div className="card-holder">{user.name}</div>
+                      <div className="card-expiry">{card.expiry}</div>
+                      <div className="card-type">{card.type}</div>
+                    </div>
+                    <div className="card-actions">
+                      <button className="card-action" title="Définir par défaut" type="button">
+                        <i className="fas fa-star"></i>
+                      </button>
+                      <button className="card-action" title="Geler la carte" type="button">
+                        <i className="fas fa-snowflake"></i>
+                      </button>
+                      <button className="card-action" title="Supprimer" type="button">
+                        <i className="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      {/*-- Popup transfert */}
+      <div className={`popup-overlay ${showTransfer ? 'active' : ''}`} id="transferPopup">
+        <div className="popup-content">
+          <div className="popup-header">
+            <h2>Effectuer un transfert</h2>
+            <button className="btn-close" id="closeTransferBtn" type="button" onClick={() => setShowTransfer(false)}>
+              <i className="fas fa-times"></i>
+            </button>
+          </div>
+
+          <div className="popup-body">
+            <form id="transferForm" className="transfer-form" onSubmit={handleTransfer}>
+              <div className="form-group">
+                <label htmlFor="beneficiary">
+                  <i className="fas fa-user"></i> Bénéficiaire
+                </label>
+                <select id="beneficiary" name="beneficiary" required value={beneficiaryId} onChange={(e) => setBeneficiaryId(e.target.value)}>
+                  <option value="" disabled>Choisir un bénéficiaire</option>
+                  {beneficiaries.map((beneficiary) => (
+                    <option key={beneficiary.id} value={beneficiary.id}>{beneficiary.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="sourceCard">
+                  <i className="fas fa-credit-card"></i> Depuis ma carte
+                </label>
+                <select id="sourceCard" name="sourceCard" required value={sourceCard} onChange={(e) => setSourceCard(e.target.value)}>
+                  <option value="" disabled>Sélectionner une carte</option>
+                  {cards.map((card) => (
+                    <option key={card.numcards} value={card.numcards}>{card.type}****{card.numcards}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="amount">
+                  <i className="fas fa-money-bill"></i> Montant
+                </label>
+                <div className="amount-input">
+                  <input
+                    type="number"
+                    id="amount"
+                    name="amount"
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                  />
+                  <span className="currency">MAD</span>
+                </div>
+              </div>
+
+              <div className="form-options">
+                <div className="checkbox-group">
+                  <input type="checkbox" id="saveBeneficiary" name="saveBeneficiary" />
+                  <label htmlFor="saveBeneficiary">Enregistrer ce bénéficiaire</label>
+                </div>
+
+                <div className="checkbox-group">
+                  <input type="checkbox" id="instantTransfer" name="instantTransfer" />
+                  <label htmlFor="instantTransfer">Transfert instantané <span className="fee-badge">+13.4 MAD</span></label>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" id="cancelTransferBtn" onClick={() => setShowTransfer(false)}>
+                  Annuler
                 </button>
-                <button className="card-action" title="Supprimer" type="button">
-                  <i className="fas fa-trash"></i>
+                <button type="submit" className="btn btn-primary" id="submitTransferBtn">
+                  <i className="fas fa-paper-plane"></i> Transférer
                 </button>
               </div>
-            </div>
+            </form>
           </div>
-        </section>
-      </div>
-    </div>
-  </main>
-
-  {/*-- Popup transfert */}
-  <div className="popup-overlay" id="transferPopup">
-    <div className="popup-content">
-      <div className="popup-header">
-        <h2>Effectuer un transfert</h2>
-        <button className="btn-close" id="closeTransferBtn" type="button">
-          <i className="fas fa-times"></i>
-        </button>
+        </div>
       </div>
 
-      <div className="popup-body">
-        <form id="transferForm" className="transfer-form">
-          <div className="form-group">
-            <label for="beneficiary">
-              <i className="fas fa-user"></i> Bénéficiaire
-            </label>
-            <select id="beneficiary" name="beneficiary" required>
-              <option value="" disabled selected>Choisir un bénéficiaire</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label for="sourceCard">
-              <i className="fas fa-credit-card"></i> Depuis ma carte
-            </label>
-            <select id="sourceCard" name="sourceCard" required>
-              <option value="" disabled selected>Sélectionner une carte</option>
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label for="amount">
-              <i className="fas fa-money-bill"></i> Montant
-            </label>
-            <div className="amount-input">
-              <input type="number" id="amount" name="amount" min="1" step="0.01" placeholder="0.00" required/>
-              <span className="currency">MAD</span>
-            </div>
-          </div>
-
-          <div className="form-options">
-            <div className="checkbox-group">
-              <input type="checkbox" id="saveBeneficiary" name="saveBeneficiary"/>
-              <label for="saveBeneficiary">Enregistrer ce bénéficiaire</label>
-            </div>
-            
-            <div className="checkbox-group">
-              <input type="checkbox" id="instantTransfer" name="instantTransfer"/>
-              <label for="instantTransfer">Transfert instantané <span className="fee-badge">+13.4 MAD</span></label>
-            </div>
-          </div>
-          
-          <div className="form-actions">
-            <button type="button" className="btn btn-secondary" id="cancelTransferBtn">
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary" id="submitTransferBtn">
-              <i className="fas fa-paper-plane"></i> Transférer
+      <div className={`popup-overlay ${showRecharge ? 'active' : ''}`} id="RechargerPopup">
+        <div className="popup-content">
+          <div className="popup-header">
+            <h2>Effectuer un rechargement</h2>
+            <button className="btn-close" id="closeRechargerBtn" type="button" onClick={() => setShowRecharge(false)}>
+              <i className="fas fa-times"></i>
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  </div>
+          <div className="popup-body">
+            <form id="RechargerForm" className="transfer-form" onSubmit={handleRecharge}>
+              <div className="form-group">
+                <label htmlFor="maCard">
+                  <i className="fas fa-credit-card"></i> Depuis ma carte
+                </label>
+                <select id="maCard" name="sourceCard" required value={rechargeCard} onChange={(e) => setRechargeCard(e.target.value)}>
+                  <option value="" disabled>Sélectionner une carte</option>
+                  {cards.map((card) => (
+                    <option key={card.numcards} value={card.numcards}>{card.type}****{card.numcards}</option>
+                  ))}
+                </select>
+              </div>
 
+              <div className="form-group">
+                <label htmlFor="amountRecharger">
+                  <i className="fas fa-money-bill"></i> Montant
+                </label>
+                <div className="amount-input">
+                  <input
+                    type="number"
+                    id="amountRecharger"
+                    name="amount"
+                    min="1"
+                    step="0.01"
+                    placeholder="0.00"
+                    required
+                    value={amountRecharge}
+                    onChange={(e) => setAmountRecharge(e.target.value)}
+                  />
+                  <span className="currency">MAD</span>
+                </div>
+              </div>
 
-
-  <div className="popup-overlay" id="RechargerPopup">
-    <div className="popup-content">
-      <div className="popup-header">
-        <h2>Effectuer un rechargement</h2>
-        <button className="btn-close" id="closeRechargerBtn" type="button">
-          <i className="fas fa-times"></i>
-        </button>
-      </div>
-<div className="popup-body">
-      <form id="RechargerForm" className="transfer-form">
-        
-
-          <div className="form-group">
-            <label for="sourceCard">
-              <i className="fas fa-credit-card"></i> Depuis ma carte
-            </label>
-            <select id="maCard" name="sourceCard" required>
-              <option value="" disabled selected>Sélectionner une carte</option>
-            </select>
+              <div className="form-actions">
+                <button type="button" className="btn btn-secondary" id="cancelRechargerBtn" onClick={() => setShowRecharge(false)}>
+                  Annuler
+                </button>
+                <button type="submit" className="btn btn-primary" id="submitRechargerBtn">
+                  <i className="fas fa-paper-plane"></i> Recharger
+                </button>
+              </div>
+            </form>
           </div>
-
-          <div className="form-group">
-            <label for="amount">
-              <i className="fas fa-money-bill"></i> Montant
-            </label>
-            <div className="amount-input">
-              <input type="number" id="amountRecharger" name="amount" min="1" step="0.01" placeholder="0.00" required/>
-              <span className="currency">MAD</span>
-            </div>
-          </div>
-
-          
-          <div className="form-actions">
-            <button type="button" className="btn btn-secondary" id="cancelRechargerBtn">
-              Annuler
-            </button>
-            <button type="submit" className="btn btn-primary" id="submitRechargerBtn">
-              <i className="fas fa-paper-plane"></i> Recharger
-            </button>
-          </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
 
-
-
-
-            <Footer />
-
-        </>
-    );
+      <Footer />
+    </>
+  );
 }
 
-
-export default dashboard
+export default Dashboard;

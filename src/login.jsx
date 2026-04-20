@@ -2,8 +2,9 @@ import Header from './header'
 import Footer from './footer'
 import { finduserbymail } from './database';
 import { useState } from 'react';
+import Dashboard from './dashboard';
 
-function login({setIsLoggedIn}) {
+function login({ setIsLoggedIn }) {
   const [mail, setMail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -11,12 +12,15 @@ function login({setIsLoggedIn}) {
     const user = finduserbymail(mail, password);
     e.preventDefault();
     if (user) {
+      sessionStorage.setItem("currentUser", JSON.stringify(user));
       setIsLoggedIn(true);
+      console.log("success");
+
     } else {
       alert("Email ou mot de passe incorrect. ");
     }
-    
-    
+
+
   };
 
   return (
@@ -30,20 +34,20 @@ function login({setIsLoggedIn}) {
             <div id="error"></div>
             <form className="login-form" onSubmit={handleSubmit}>
               <div className="input-group">
-                <input 
-                  id="mail" 
-                  type="email" 
-                  placeholder="Adresse e-mail" 
+                <input
+                  id="mail"
+                  type="email"
+                  placeholder="Adresse e-mail"
                   value={mail}
                   onChange={(e) => setMail(e.target.value)}
                   required
                 />
               </div>
               <div className="input-group">
-                <input 
-                  id="password" 
-                  type="password" 
-                  placeholder="Mot de passe" 
+                <input
+                  id="password"
+                  type="password"
+                  placeholder="Mot de passe"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -59,7 +63,7 @@ function login({setIsLoggedIn}) {
             </p>
           </div>
           <div className="hero-image">
-            <img src="../src/assets/e-Wallet6.gif" alt="Illustration de connexion"/>
+            <img src="../src/assets/e-Wallet6.gif" alt="Illustration de connexion" />
           </div>
         </section>
       </main>
