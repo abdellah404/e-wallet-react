@@ -14,12 +14,12 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [isLoggedin, setIsLoggedIn] = useState(false);
 
   return (
     <>
       
-      <Dashboard />
+      {isLoggedin ? <Dashboard/> : <Login setIsLoggedIn= {()=> setIsLoggedIn }/> }
     
 
     </>
